@@ -183,7 +183,7 @@ if COLLECTION_NAME not in [c.name for c in qdrant.get_collections().collections]
         field_name="mode",
         field_schema=PayloadSchemaType.KEYWORD
     )
-git
+
 st.header("📘 Tłumaczenie z języka polskiego")
 text_polish = st.text_area("Wpisz tekst po polsku", key="text_polish")
 
