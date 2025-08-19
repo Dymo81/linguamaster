@@ -1,14 +1,4 @@
-io
 streamlit
-OpenAI
-dotenv_values
-QdrantClient
-PointStruct
-VectorParams
-Distance
-Filter
-FieldCondition
-MatchValue
-PayloadSchemaType
-uuid
-datetime
+openai
+qdrant-client
+python-dotenv
