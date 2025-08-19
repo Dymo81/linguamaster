@@ -11,9 +11,13 @@ env = dotenv_values(".env")
 # client = OpenAI(api_key=env["OPENAI_API_KEY"])
 
 # Połączenie z Qdrant
+# qdrant = QdrantClient(
+#     url=env["QDRANT_URL"],
+#     api_key=env["QDRANT_API_KEY"]
+# )
 qdrant = QdrantClient(
-    url=env["QDRANT_URL"],
-    api_key=env["QDRANT_API_KEY"]
+    url=st.secrets["QDRANT_URL"],
+    api_key=st.secrets["QDRANT_API_KEY"]
 )
 
 COLLECTION_NAME = env["QDRANT_COLLECTION"]
