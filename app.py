@@ -6,30 +6,40 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct, VectorParams, Distance, Filter, FieldCondition, MatchValue, PayloadSchemaType
 import uuid
 import datetime
+import os
 
-env = dotenv_values(".env")
+# env = dotenv_values(".env")
+env = {
+    "QDRANT_URL": st.secrets.get("QDRANT_URL", os.getenv("QDRANT_URL")),
+    "QDRANT_API_KEY": st.secrets.get("QDRANT_API_KEY", os.getenv("QDRANT_API_KEY")),
+    "QDRANT_COLLECTION": st.secrets.get("QDRANT_COLLECTION", os.getenv("QDRANT_COLLECTION"))
+}
 # client = OpenAI(api_key=env["OPENAI_API_KEY"])
 
-# Połączenie z Qdrant
-# qdrant = QdrantClient(
-#     url=env["QDRANT_URL"],
-#     api_key=env["QDRANT_API_KEY"]
-# )
-qdrant = QdrantClient(
-    url=st.secrets["QDRANT_URL"],
-    api_key=st.secrets["QDRANT_API_KEY"]
-)
+# if "QDRANT_URL" in st.secrets:
+#     env["QDRANT_URL"] = st.secrets["QDRANT_URL"]
+# if "QDRANT_API_KEY" in st.secrets:
+#     env["QDRANT_API_KEY"] = st.secrets["QDRANT_API_KEY"]
+# if "QDRANT_COLLECTION" in st.secrets:
+#     env["QDRANT_COLLECTION"] = st.secrets["QDRANT_COLLECTION"]
 
 COLLECTION_NAME = env["QDRANT_COLLECTION"]
 
 def get_openai_client():
     return OpenAI(api_key=st.session_state["openai_api_key"])
 
+
+# Połączenie z Qdrant
+qdrant = QdrantClient(
+    url=env["QDRANT_URL"],
+    api_key=env["QDRANT_API_KEY"]
+)
+
 # Funkcja tłumacząca tekst
 def translate_text(text, target_language):
     prompt = f"Tłumacz poniższy tekst z języka polskiego na {target_language}:\n\n{text}"
     
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "Jesteś nauczycielem języków obcych z 10 letnim doświadczeniem. Tłumacz jasno i naturalnie."},
@@ -45,7 +55,7 @@ def translate_text(text, target_language):
 def is_polish(text: str) -> bool:
     prompt = f"Na podstawie poniższego tekstu powiedz tylko 'tak' jeśli jest po polsku, a 'nie' jeśli jest w innym języku. Tekst: {text}"
     
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "Jesteś nauczycielem języków obcych. Odpowiadaj tylko: 'tak' lub 'nie'."},
@@ -62,7 +72,7 @@ def is_polish(text: str) -> bool:
 def correct_foreign_text(text: str) -> str:
     prompt = f"Na podstawie podanego tekstu, wciel się w rolę eksperta językowego i popraw ten tekst zgodnie z zasadami gramatycznymi obowiązującymi w tym języku. Tekst: {text}"
     
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "Jesteś ekspertem językowym. Zwracaj tylko poprawioną wersję zdania."},
@@ -78,7 +88,7 @@ def correct_foreign_text(text: str) -> str:
 def beautify_text(text: str) -> str:
     prompt = f"Na podstawie podanego tekstu w języku obcym wciel się w native speakera z 15-letnim doświadczeniem i cenionego na rynku. Sprawdź, czy podany tekst jest poprawny gramatycznie, rozbuduj zdanie tak, aby brzmiało ono naturalnie jak w codziennym życiu. Tekst: {text}"
     
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "Jesteś native speakerem języka obcego z doświadczeniem w nauczaniu i edycji językowej. Zwróć tylko poprawioną i naturalnie brzmiącą wersję tekstu."},
@@ -102,7 +112,7 @@ def explain_text(text: str) -> str:
     Tekst: {text}
     """
 
-    response = client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "Jesteś świetnym nauczycielem języków, który tłumaczy wszystko prosto i skutecznie. Twoim uczniem jest 12-latek."},
@@ -115,7 +125,7 @@ def explain_text(text: str) -> str:
     return response.choices[0].message.content.strip()
 
 def listening_text(text: str) -> io.BytesIO:
-    response = client.audio.speech.create(
+    response = get_openai_client().audio.speech.create(
         model="tts-1",
         voice="nova",
         input=text
@@ -127,7 +137,7 @@ def listening_text(text: str) -> io.BytesIO:
 # Funkcja do zapisu punktu do Qdrant
 def save_history_to_qdrant(original_text, processed_text, language, mode):
     # Tworzenie embeddingu z OpenAI
-    embedding = client.embeddings.create(
+    embedding = get_openai_client().embeddings.create(
         model="text-embedding-3-small",
         input=processed_text
     ).data[0].embedding
