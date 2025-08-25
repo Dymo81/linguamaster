@@ -8,32 +8,73 @@ import uuid
 import datetime
 import os
 
-# env = dotenv_values(".env")
-env = {
-    "QDRANT_URL": st.secrets.get("QDRANT_URL", os.getenv("QDRANT_URL")),
-    "QDRANT_API_KEY": st.secrets.get("QDRANT_API_KEY", os.getenv("QDRANT_API_KEY")),
-    "QDRANT_COLLECTION": st.secrets.get("QDRANT_COLLECTION", os.getenv("QDRANT_COLLECTION"))
-}
-# client = OpenAI(api_key=env["OPENAI_API_KEY"])
+# Funkcja do bezpiecznego pobierania zmiennych środowiskowych
+def get_env_var(key, default=None):
+    """Pobiera zmienną środowiskową z różnych źródeł w kolejności priorytetu"""
+    # 1. Najpierw sprawdź Streamlit secrets (dla Streamlit Cloud)
+    try:
+        if hasattr(st, 'secrets') and key in st.secrets:
+            return st.secrets[key]
+    except:
+        pass
+    
+    # 2. Sprawdź zmienne środowiskowe systemu
+    if key in os.environ:
+        return os.environ[key]
+    
+    # 3. Sprawdź plik .env (dla lokalnego rozwoju)
+    try:
+        env_file = dotenv_values(".env")
+        if key in env_file:
+            return env_file[key]
+    except:
+        pass
+    
+    # 4. Zwróć wartość domyślną
+    return default
 
-# if "QDRANT_URL" in st.secrets:
-#     env["QDRANT_URL"] = st.secrets["QDRANT_URL"]
-# if "QDRANT_API_KEY" in st.secrets:
-#     env["QDRANT_API_KEY"] = st.secrets["QDRANT_API_KEY"]
-# if "QDRANT_COLLECTION" in st.secrets:
-#     env["QDRANT_COLLECTION"] = st.secrets["QDRANT_COLLECTION"]
+# Pobieranie konfiguracji Qdrant
+QDRANT_URL = get_env_var("QDRANT_URL")
+QDRANT_API_KEY = get_env_var("QDRANT_API_KEY") 
+QDRANT_COLLECTION = get_env_var("QDRANT_COLLECTION", "lingua_master_history")
 
-COLLECTION_NAME = env["QDRANT_COLLECTION"]
+# Sprawdzenie czy mamy wymagane zmienne dla Qdrant
+if not QDRANT_URL or not QDRANT_API_KEY:
+    st.error("""
+    ❌ Brak konfiguracji Qdrant!
+    
+    **Dla lokalnego uruchomienia:**
+    Utwórz plik `.env` w głównym katalogu z następującymi zmiennymi:
+    ```
+    QDRANT_URL=your_qdrant_url
+    QDRANT_API_KEY=your_qdrant_api_key
+    QDRANT_COLLECTION=lingua_master_history
+    ```
+    
+    **Dla Streamlit Cloud:**
+    Dodaj sekrety w ustawieniach aplikacji:
+    - QDRANT_URL
+    - QDRANT_API_KEY
+    - QDRANT_COLLECTION (opcjonalne)
+    """)
+    st.stop()
+
+COLLECTION_NAME = QDRANT_COLLECTION
 
 def get_openai_client():
     return OpenAI(api_key=st.session_state["openai_api_key"])
 
-
 # Połączenie z Qdrant
-qdrant = QdrantClient(
-    url=env["QDRANT_URL"],
-    api_key=env["QDRANT_API_KEY"]
-)
+try:
+    qdrant = QdrantClient(
+        url=QDRANT_URL,
+        api_key=QDRANT_API_KEY
+    )
+    # Test połączenia
+    qdrant.get_collections()
+except Exception as e:
+    st.error(f"❌ Błąd połączenia z Qdrant: {str(e)}")
+    st.stop()
 
 # Funkcja tłumacząca tekst
 def translate_text(text, target_language):
@@ -165,9 +206,10 @@ st.title('Lingua Master')
 
 # OpenAI API key protection
 if not st.session_state.get("openai_api_key"):
-    if "OPENAI_API_KEY" in env:
-        st.session_state["openai_api_key"] = env["OPENAI_API_KEY"]
-
+    # Sprawdź czy OpenAI API key jest dostępne w zmiennych środowiskowych
+    openai_api_key = get_env_var("OPENAI_API_KEY")
+    if openai_api_key:
+        st.session_state["openai_api_key"] = openai_api_key
     else:
         st.info("Dodaj swój klucz API OpenAI aby móc korzystać z tej aplikacji")
         st.session_state["openai_api_key"] = st.text_input("Klucz API", type="password")
